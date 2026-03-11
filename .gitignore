@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# 环境
+venv/
+env/
+ENV/
+.venv
+
+# 数据文件（不提交到 Git）
+*.csv
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.npy
+*.npz
+data/
+datasets/
+*.tgz
+*.tar.gz
+
+# 结果文件
+comparison_results/
+all_results/
+results/
+logs/
+output/
+*.zip
+
+# 模型文件
+*.pth
+*.pt
+*.ckpt
+*.pb
+*.h5
+checkpoints/
+models/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Git
+*.orig
+
+# 缓存
+.cache/
+*.log
+
+# TensorFlow
+*.tfevents.*
