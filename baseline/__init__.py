@@ -1,6 +1,6 @@
-"""基线模型模块
+"""Baseline model utilities.
 
-包含5个经典机器学习模型的实现：
+This package exposes a compact baseline suite consisting of:
 - Logistic Regression / Linear Regression
 - CART (Decision Tree)
 - XGBoost
@@ -10,4 +10,4 @@
 
 from baseline.baseline_models import BaselineComparison
 
-__all__ = ['BaselineComparison']
+__all__ = ["BaselineComparison"]

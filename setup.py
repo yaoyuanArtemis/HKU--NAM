@@ -1,73 +1,61 @@
 # coding=utf-8
-# Copyright 2026 The Google Research Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+"""Setup script for the combined NAM + baseline project."""
 
-"""Setup script for NAMs."""
+from pathlib import Path
 
-import pathlib
 from setuptools import find_packages
 from setuptools import setup
 
-here = pathlib.Path(__file__).parent.resolve()
 
-long_description = (here / 'README.md').read_text(encoding='utf-8')
+ROOT = Path(__file__).parent.resolve()
+README = (ROOT / "README.md").read_text(encoding="utf-8")
 
-install_requires = [
-    'tensorflow>=1.15',
-    'numpy>=1.15.2',
-    'sklearn',
-    'pandas>=0.24',
-    'absl-py',
+
+def build_package_list():
+    packages = []
+    for package in find_packages(include=["baseline", "baseline.*", "nam", "nam.*"]):
+        if package == "nam" or package.startswith("nam."):
+            packages.append(package.replace("nam", "neural_additive_models", 1))
+        else:
+            packages.append(package)
+    packages.append("neural_additive_models")
+    return sorted(set(packages))
+
+
+INSTALL_REQUIRES = [
+    "numpy>=1.24,<2",
+    "pandas>=2.1",
+    "scikit-learn>=1.3",
+    "torch>=2.1",
+    "matplotlib>=3.8",
+    "tqdm>=4.66",
+    "xgboost>=1.7",
+    "interpret>=0.5",
+    "tabulate>=0.9",
 ]
 
-nam_description = ('Neural Additive Models: Intepretable ML with Neural Nets')
 
 setup(
-    name='neural_additive_models',
-    version=0.1,
-    description=nam_description,
-    long_description=long_description,
-    long_description_content_type='text/markdown',
-    url='https://github.com/agarwl/google-research/tree/master/neural_additive_models',
-    author='Rishabh Agarwal',
-    classifiers=[
-        'Development Status :: 4 - Beta',
-
-        'Intended Audience :: Developers',
-        'Intended Audience :: Education',
-        'Intended Audience :: Science/Research',
-
-        'License :: OSI Approved :: Apache Software License',
-
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3 :: Only',
-
-        'Topic :: Scientific/Engineering',
-        'Topic :: Scientific/Engineering :: Mathematics',
-        'Topic :: Scientific/Engineering :: Artificial Intelligence',
-        'Topic :: Software Development',
-        'Topic :: Software Development :: Libraries',
-        'Topic :: Software Development :: Libraries :: Python Modules',
-
-    ],
-    keywords='nam, interpretability, machine, learning, research',
+    name="hku-nam",
+    version="0.1.0",
+    description="Neural Additive Models with baseline comparison utilities.",
+    long_description=README,
+    long_description_content_type="text/markdown",
+    author="HKU NAM Project",
+    python_requires=">=3.10",
+    packages=build_package_list(),
+    package_dir={"neural_additive_models": "nam"},
     include_package_data=True,
-    packages=find_packages(exclude=['docs']),
-    install_requires=install_requires,
-    license='Apache 2.0',
+    install_requires=INSTALL_REQUIRES,
+    entry_points={
+        "console_scripts": [
+            "nam-batch=main:main",
+            "nam-compare=baseline.run_experiment:main",
+            "nam-train=neural_additive_models.experiments.nam.train:main",
+            "nam-evaluate=neural_additive_models.experiments.nam.evaluate:main",
+            "nam-plot=neural_additive_models.experiments.nam.plot_ensemble:main",
+            "nam-compas=neural_additive_models.experiments.compas_multitask.run:main",
+            "nam-vs-fm=neural_additive_models.experiments.nam_vs_fm.run:main",
+        ]
+    },
 )
