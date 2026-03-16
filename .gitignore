@@ -1,62 +1,32 @@
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 *.egg
 *.egg-info/
-dist/
 build/
+dist/
 *.whl
 
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb_checkpoints/
+.ipynb_checkpoints/
 
-# 环境
 venv/
 env/
 ENV/
-.venv
+.venv/
 
-# 数据文件（不提交到 Git）
-*.csv
-*.h5
-*.hdf5
-*.pkl
-*.pickle
-*.npy
-*.npz
-data/
-datasets/
-*.tgz
-*.tar.gz
+.pytest_cache/
+.mypy_cache/
+.cache/
+*.log
+*.orig
 
-# 结果文件
-comparison_results/
-all_results/
-results/
-logs/
-output/
-*.zip
-
-# 模型文件
-*.pth
-*.pt
-*.ckpt
-*.pb
-*.h5
-checkpoints/
-models/
-
-# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# 系统文件
 .DS_Store
 Thumbs.db
 .DS_Store?
@@ -65,12 +35,29 @@ Thumbs.db
 .Trashes
 ehthumbs.db
 
-# Git
-*.orig
+datasets/
+comparison_results/
+all_results/
+results/
+logs/
+outputs/
+output/
+checkpoints/
+repro_runs/
+*.zip
 
-# 缓存
-.cache/
-*.log
+*.csv
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.tgz
+*.tar.gz
 
-# TensorFlow
+*.pth
+*.pt
+*.ckpt
+*.pb
 *.tfevents.*

@@ -5,10 +5,10 @@ It handles data preparation, runs all models, and generates a comparison report.
 
 Usage:
     # Quick comparison on a dataset
-    python compare_all_models.py --data_path data.csv --target_column label
+    python baseline/run_experiment.py --data_path data.csv --target_column label
 
     # Full comparison with custom parameters
-    python compare_all_models.py \
+    python baseline/run_experiment.py \
         --data_path data.csv \
         --target_column label \
         --task classification \
@@ -29,7 +29,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-# 添加父目录到路径，以便导入模块
+# Add the repository root to the module search path.
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -234,7 +234,7 @@ def run_nam(
     args: argparse.Namespace,
     output_dir: str
 ) -> Dict:
-    """Run NAM training using nam_train.py.
+    """Return the root-level NAM training command for this comparison flow.
 
     Args:
         train_path, val_path, test_path: Paths to data splits
@@ -253,7 +253,7 @@ def run_nam(
 
     # Build command
     cmd = [
-        'python', 'nam_train.py',
+        sys.executable, 'nam_train.py',
         '--training_epochs', str(args.nam_epochs),
         '--learning_rate', str(args.nam_lr),
         '--batch_size', str(args.nam_batch_size),
@@ -263,7 +263,7 @@ def run_nam(
     ]
 
     print(f"Running: {' '.join(cmd)}")
-    print("\nNote: NAM training via nam_train.py requires data loading setup.")
+    print("\nNote: NAM training now uses the repository-root entrypoint nam_train.py.")
     print("For this demo, we'll use baseline_comparison's DNN-MLP as NAM proxy.\n")
 
     # For now, we don't actually call NAM since it requires specific data format
@@ -272,7 +272,7 @@ def run_nam(
         'Model': 'NAM',
         'Status': 'Use nam_train.py separately',
         'Command': ' '.join(cmd),
-        'Note': 'NAM requires specific dataset format. See nam_train.py for details.'
+        'Note': 'NAM requires project dataset names. See README.md and nam_train.py for details.'
     }
 
     return result
@@ -313,8 +313,8 @@ def run_baselines(
         cat_columns.remove(target_column)
 
     if cat_columns:
-        print(f"\n⚠️  发现 {len(cat_columns)} 个分类变量，正在编码...")
-        print(f"   分类列: {cat_columns[:5]}{'...' if len(cat_columns) > 5 else ''}")
+        print(f"\nDetected {len(cat_columns)} categorical feature columns. Encoding them now.")
+        print(f"Columns: {cat_columns[:5]}{'...' if len(cat_columns) > 5 else ''}")
 
         # Use Label Encoding for each categorical column
         label_encoders = {}
@@ -329,11 +329,11 @@ def run_baselines(
             test_df[col] = le.transform(test_df[col].astype(str))
             label_encoders[col] = le
 
-        print(f"   ✓ 分类变量已编码")
+        print("Categorical features encoded.")
 
     # Encode target column if it's categorical (string type)
     if train_df[target_column].dtype == 'object':
-        print(f"\n⚠️  目标列是分类变量，正在编码...")
+        print("\nThe target column is categorical. Encoding it now.")
         target_encoder = LabelEncoder()
         # Fit on combined target values
         combined_target = pd.concat([
@@ -347,7 +347,7 @@ def run_baselines(
         val_df[target_column] = target_encoder.transform(val_df[target_column].astype(str))
         test_df[target_column] = target_encoder.transform(test_df[target_column].astype(str))
 
-        print(f"   ✓ 目标列已编码: {dict(enumerate(target_encoder.classes_))}")
+        print(f"Encoded target classes: {dict(enumerate(target_encoder.classes_))}")
 
     # Separate features and targets
     X_train = train_df.drop(columns=[target_column]).values

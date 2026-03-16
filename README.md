@@ -1,72 +1,194 @@
-## Neural Additive Models: Interpretable Machine Learning with Neural Nets
+# Neural Additive Models in PyTorch
 
-# [![Website](https://img.shields.io/badge/www-Website-green)](https://neural-additive-models.github.io) [![Visualization Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1E3_t7Inhol-qVPmFNq1Otj9sWt1vU_DQ?usp=sharing)
+This repository now uses the repository root as the main project entrypoint. It contains:
 
+- The full PyTorch NAM implementation under `nam/`
+- Root-level NAM entry scripts such as `nam_train.py`
+- Baseline comparison utilities under `baseline/`
+- Batch workflows for reproducing NAM-style experiments across datasets
 
-This repository contains open-source code
-for the paper
-[Neural Additive Models: Interpretable Machine Learning with Neural Nets](https://arxiv.org/abs/2004.13912).
+## Repository Layout
 
-<img src="https://i.imgur.com/Hvb7sb2.jpg" width="50%" alt="Neural Additive Model" >
+```text
+baseline/                     # baseline model comparison utilities
+nam/                          # NAM source package
+neural_additive_models/       # compatibility package for root-level execution
+nam_train.py                  # root NAM training entrypoint
+nam_evaluate.py               # root NAM evaluation entrypoint
+nam_plot_ensemble.py          # root NAM visualization entrypoint
+nam_compas_multitask.py       # COMPAS single-task vs multitask entrypoint
+nam_vs_fm.py                  # NAM vs NAM+FM entrypoint
+main.py                       # batch baseline / NAM workflow
+download_datasets.py          # dataset preparation helper
+NAM_Complete_Workflow.ipynb   # notebook workflow
+```
 
-Currently,
-we release the `tf.keras.Model` for NAM which can be simply plugged into any neural network training procedure. We also provide helpers for
-building a computation graph using NAM for classification/regression problems with `tf.compat.v1`.
-The `nam_train.py` file provides the example of a training script on a single
-dataset split.
+## Installation
 
-Use `./run.sh` test script to ensure that the setup is correct.
+Create an environment and install the project dependencies:
 
-## Multi-task NAMs
-The code for multi task NAMs can be found at [https://github.com/lemeln/nam](https://github.com/lemeln/nam).
+```bash
+pip install -r requirements.txt
+```
 
-## Dependencies
+Optional editable install with CLI entrypoints:
 
-The code was tested under Ubuntu 16 and uses these packages:
+```bash
+pip install -e .
+```
 
-- tensorflow>=1.15
-- numpy>=1.15.2
-- sklearn>=0.23
-- pandas>=0.24
-- absl-py
+After editable install, the following commands are available:
+
+- `nam-batch`
+- `nam-compare`
+- `nam-train`
+- `nam-evaluate`
+- `nam-plot`
+- `nam-compas`
+- `nam-vs-fm`
 
 ## Datasets
 
-The datasets used in the paper (except MIMIC-II) can be found in the <a href="https://console.cloud.google.com/storage/browser/nam_datasets/data"> public GCP bucket</a> `gs://nam_datasets/data`, which can be downloaded using [gsutil][gsutil]. To install gsutil, follow the instructions [here][gsutil_install]. The preprocessed version of MIMIC-II dataset, used in the NAM paper, can be
-shared only if you provide us with the signed data use agreement to the MIMIC-III Clinical
-Database on the <a href="https://mimic.mit.edu/docs/gettingstarted/#physionet-credentialing">PhysioNet website</a>.
+The shared preprocessing is implemented in `nam/data_utils.py`. The workflow supports `Housing`, `Fico`, `Credit`, `Adult`, `Telco`, `BreastCancer`, `Heart`, `Mimic2`, and `Recidivism`.
 
-Citing
-------
-If you use this code in your research, please cite the following paper:
+Prepare local datasets with:
 
-> Agarwal, R., Melnick, L., Frosst, N., Zhang, X., Lengerich, B., Caruana,
-> R., & Hinton, G. E. (2021). Neural additive models: Interpretable machine > learning with neural nets. Advances in Neural Information Processing
-> Systems, 34.
+```bash
+python download_datasets.py
+```
 
-    @article{agarwal2021neural,
-      title={Neural additive models: Interpretable machine learning with neural nets},
-      author={Agarwal, Rishabh and Melnick, Levi and Frosst, Nicholas and Zhang, Xuezhou and Lengerich, Ben and Caruana, Rich and Hinton, Geoffrey E},
-      journal={Advances in Neural Information Processing Systems},
-      volume={34},
-      year={2021}
-    }
+The script can automatically prepare public datasets and will print instructions for datasets that require manual download or access approval.
 
----
+## NAM Experiments
 
-*Disclaimer about COMPAS dataset: It is important to note that
-developing a machine learning model to predict pre-trial detention has a
-number of important ethical considerations. You can learn more about these
-issues in the Partnership on AI
-[Report on Algorithmic Risk Assessment Tools in the U.S. Criminal Justice System](https://www.partnershiponai.org/report-on-machine-learning-in-risk-assessment-tools-in-the-u-s-criminal-justice-system/).
-The Partnership on AI is a multi-stakeholder organization -- of which Google
-is a member -- that creates guidelines around AI.*
+### 1. Base NAM Reproduction
 
-*We’re using the COMPAS dataset only as an example of how to identify and
-remediate fairness concerns in data. This dataset is canonical in the
-algorithmic fairness literature.*
+Train a NAM ensemble from the repository root:
 
-*Disclaimer: This is not an official Google product.*
+```bash
+python nam_train.py \
+  --dataset_name Housing \
+  --regression True \
+  --n_models 5 \
+  --num_splits 3 \
+  --fold_num 1 \
+  --training_epochs 1000 \
+  --learning_rate 0.00674 \
+  --activation relu \
+  --shallow False \
+  --num_basis_functions 64 \
+  --output_regularization 0.001 \
+  --l2_regularization 1e-6 \
+  --dropout 0.0 \
+  --feature_dropout 0.0 \
+  --logdir outputs/nam/housing_example/training
+```
 
-[gsutil_install]: https://cloud.google.com/storage/docs/gsutil_install#install
-[gsutil]: https://cloud.google.com/storage/docs/gsutil
+Evaluate a trained fold:
+
+```bash
+python nam_evaluate.py \
+  --run_dir outputs/nam/housing_example/training/fold_1
+```
+
+Plot ensemble shape functions:
+
+```bash
+python nam_plot_ensemble.py \
+  --run_dir outputs/nam/housing_example/training/fold_1
+```
+
+Base NAM outputs follow this layout:
+
+```text
+outputs/nam/<run_name>/training/fold_<k>/split_<s>/model_<i>/
+outputs/nam/<run_name>/training/fold_<k>/training_params.json
+outputs/nam/<run_name>/training/fold_<k>/test_outputs/
+outputs/nam/<run_name>/training/fold_<k>/visualization_outputs/
+```
+
+### 2. COMPAS Single-Task vs Multitask
+
+```bash
+python nam_compas_multitask.py --mode cv --n_models 20 --training_epochs 50
+python nam_compas_multitask.py --mode figure --n_models 20 --training_epochs 50
+python nam_compas_multitask.py --mode all --n_models 100 --training_epochs 80
+```
+
+Outputs are written under `outputs/compas_multitask/`.
+
+### 3. NAM vs NAM+FM
+
+```bash
+python nam_vs_fm.py \
+  --dataset_name Credit \
+  --regression False \
+  --n_models 5 \
+  --training_epochs 1000 \
+  --fm_rank 12
+```
+
+Or run the prepared script:
+
+```bash
+bash nam/scripts/run_nam_vs_fm_experiments.sh
+```
+
+Outputs are written under `outputs/nam_vs_fm/`.
+
+## Baseline Comparison
+
+### Single Dataset Comparison
+
+Use the baseline comparison entrypoint:
+
+```bash
+python baseline/run_experiment.py \
+  --data_path datasets/breast_cancer.csv \
+  --target_column target \
+  --task classification \
+  --output_dir comparison_results/breast_cancer
+```
+
+This runs the available baseline models and records a markdown report plus CSV summary.
+
+### Batch Baseline + NAM Workflow
+
+The repository root `main.py` runs the multi-dataset workflow:
+
+```bash
+python main.py
+python main.py --train_nam
+python main.py --only_nam
+```
+
+- `python main.py`: baseline models only
+- `python main.py --train_nam`: baselines followed by NAM training
+- `python main.py --only_nam`: NAM training only
+
+Batch outputs are written under `all_results/`, and NAM logs are stored under `all_results/nam_logs/`.
+
+## Notes on Paths
+
+- The canonical user-facing entrypoints now live at the repository root.
+- The actual NAM implementation remains under `nam/`.
+- The `neural_additive_models` package exists as a compatibility layer so both editable installs and root-level scripts work consistently.
+- The recommended shared output root for standalone NAM experiments is `outputs/`.
+
+## Citation
+
+If you use this code in research, please cite:
+
+```bibtex
+@article{agarwal2021neural,
+  title={Neural additive models: Interpretable machine learning with neural nets},
+  author={Agarwal, Rishabh and Melnick, Levi and Frosst, Nicholas and Zhang, Xuezhou and Lengerich, Ben and Caruana, Rich and Hinton, Geoffrey E},
+  journal={Advances in Neural Information Processing Systems},
+  volume={34},
+  year={2021}
+}
+```
+
+## COMPAS Disclaimer
+
+The COMPAS dataset is included only as a reproduction example for interpretability and fairness-related experiments. Any criminal justice prediction task has significant ethical and social risks and should be treated accordingly.

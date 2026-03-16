@@ -19,7 +19,7 @@ cd "$REPO_ROOT"
 # min(num_basis_functions, unique_values * units_multiplier)
 # so the commands below are the closest match under the current codebase.
 
-PYTHONPATH=. python experiments/nam_vs_fm/run.py \
+python nam_vs_fm.py \
   --dataset_name=Fico \
   --regression=True \
   --learning_rate=0.0161 \
@@ -33,7 +33,7 @@ PYTHONPATH=. python experiments/nam_vs_fm/run.py \
   --shallow=False \
   --output_dir="$REPO_ROOT/outputs/nam_vs_fm/Fico"
 
-PYTHONPATH=. python experiments/nam_vs_fm/run.py \
+python nam_vs_fm.py \
   --dataset_name=Housing \
   --regression=True \
   --learning_rate=0.00674 \
@@ -47,7 +47,7 @@ PYTHONPATH=. python experiments/nam_vs_fm/run.py \
   --shallow=False \
   --output_dir="$REPO_ROOT/outputs/nam_vs_fm/Housing"
 
-PYTHONPATH=. python experiments/nam_vs_fm/run.py \
+python nam_vs_fm.py \
   --dataset_name=Credit \
   --regression=False \
   --learning_rate=0.0157 \
