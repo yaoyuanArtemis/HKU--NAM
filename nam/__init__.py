@@ -1,3 +1,11 @@
+"""Neural Additive Models package."""
+
+import os
+
+os.environ.setdefault("KMP_USE_SHM", "0")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 # coding=utf-8
 # Copyright 2026 The Google Research Authors.
 #
@@ -12,4 +20,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-

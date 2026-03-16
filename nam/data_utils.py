@@ -16,15 +16,22 @@
 """Data readers for regression/ binary classification datasets."""
 
 import gzip
+import os
 import os.path as osp
 import tarfile
 from typing import Tuple, Dict, Union, Iterator, List
 
+os.environ.setdefault('KMP_USE_SHM', '0')
+os.environ.setdefault('OMP_NUM_THREADS', '1')
+os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
+
 import numpy as np
 import pandas as pd
+import torch
 
 from sklearn.compose import ColumnTransformer
 from sklearn.datasets import load_breast_cancer
+from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import KFold
 from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import StratifiedKFold
@@ -33,18 +40,30 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.preprocessing import OneHotEncoder
-import tensorflow.compat.v1 as tf
-gfile = tf.gfile
 
-DATA_PATH = 'gs://nam_datasets/data'
+DATA_PATH = osp.join(osp.dirname(__file__), 'data')
 DatasetType = Tuple[np.ndarray, np.ndarray]
+
+
+def _resolve_dataset_path(relative_path):
+  """Builds an absolute path under local DATA_PATH."""
+  return osp.join(DATA_PATH, relative_path)
+
+
+def _resolve_existing_dataset_path(*relative_paths):
+  """Return the first existing dataset path under ``DATA_PATH``."""
+  resolved_paths = [_resolve_dataset_path(path) for path in relative_paths]
+  for path in resolved_paths:
+    if osp.exists(path):
+      return path
+  return resolved_paths[0]
 
 
 def save_array_to_disk(filename,
                        np_arr,
                        allow_pickle = False):
   """Saves a np.ndarray to a specified file on disk."""
-  with gfile.Open(filename, 'wb') as f:
+  with open(filename, 'wb') as f:
     with gzip.GzipFile(fileobj=f) as outfile:
       np.save(outfile, np_arr, allow_pickle=allow_pickle)
 
@@ -53,8 +72,8 @@ def read_dataset(dataset_name,
                  header = 'infer',
                  names = None,
                  delim_whitespace = False):
-  dataset_path = osp.join(DATA_PATH, dataset_name)
-  with gfile.Open(dataset_path, 'r') as f:
+  dataset_path = _resolve_dataset_path(dataset_name)
+  with open(dataset_path, 'r', encoding='utf-8') as f:
     df = pd.read_csv(
         f, header=header, names=names, delim_whitespace=delim_whitespace)
   return df
@@ -136,7 +155,10 @@ def load_credit_data():
     A dict containing the `problem` type (i.e. classification) and the
     input features `X` as a pandas.Dataframe and the labels `y` as a pd.Series.
   """
-  df = read_dataset('creditcard.csv')
+  credit_path = _resolve_existing_dataset_path(
+      'creditcard.csv',
+      'Credit Card Fraud Detection/creditcard.csv')
+  df = pd.read_csv(credit_path)
   df = df.dropna()
   train_cols = df.columns[0:-1]
   label = df.columns[-1]
@@ -186,8 +208,9 @@ def load_mimic2_data():
   """
 
   # Create column names
-  attr_dict_path = osp.join(DATA_PATH, 'mimic2/mimic2.dict')
-  attributes = gfile.Open(attr_dict_path, 'r').readlines()
+  attr_dict_path = _resolve_dataset_path('mimic2/mimic2.dict')
+  with open(attr_dict_path, 'r', encoding='utf-8') as f:
+    attributes = f.readlines()
   column_names = [x.split(' ,')[0] for x in attributes]
 
   df = read_dataset(
@@ -220,24 +243,65 @@ def load_recidivism_data():
     input features `X` as a pandas.Dataframe and the labels `y` as a pd.Series.
   """
 
-  # Create column names
-  attr_dict_path = osp.join(DATA_PATH, 'recidivism/recid.attr')
-  attributes = gfile.Open(attr_dict_path, 'r').readlines()
-  column_names = [x.split(':')[0] for x in attributes]
-
-  df = read_dataset(
-      'recidivism/recid.data',
-      header=None,
-      names=column_names,
-      delim_whitespace=True)
-  train_cols = column_names[:-1]
-  label = column_names[-1]
-  x_df = df[train_cols]
-  y_df = df[label]
+  df = load_recidivism_dataframe()
+  feature_cols = [
+      'age', 'juv_fel_count', 'juv_misd_count', 'juv_other_count',
+      'priors_count', 'c_charge_degree', 'race', 'sex'
+  ]
+  x_df = df[feature_cols]
+  y_df = df['two_year_recid']
   return {
       'problem': 'classification',
       'X': x_df,
       'y': y_df,
+  }
+
+
+def load_recidivism_dataframe():
+  """Load the locally available COMPAS dataframe with project filtering."""
+  recid_path = _resolve_existing_dataset_path(
+      'compas-scores-two-years.csv',
+      'compas-analysis-master/compas-scores-two-years.csv')
+  df = pd.read_csv(recid_path)
+  df = df[df['sex'].isin(['Male', 'Female'])]
+  df = df[df['two_year_recid'].isin([0, 1])]
+  return df.reset_index(drop=True)
+
+
+def load_recidivism_multitask_data(
+    include_sex_feature: bool = True,
+) -> Dict[str, Union[str, np.ndarray, List[str]]]:
+  """Load COMPAS as a two-task gender-conditioned classification problem."""
+  df = load_recidivism_dataframe()
+  feature_cols = [
+      'age', 'juv_fel_count', 'juv_misd_count', 'juv_other_count',
+      'priors_count', 'c_charge_degree', 'race'
+  ]
+  if include_sex_feature:
+    feature_cols.append('sex')
+  x_df = df[feature_cols]
+  transformed_x, column_names = transform_data(x_df)
+  transformed_x = transformed_x.astype('float32')
+
+  task_names = ['Female', 'Male']
+  targets = np.zeros((len(df), len(task_names)), dtype=np.float32)
+  masks = np.zeros_like(targets)
+  task_index = np.where(df['sex'].to_numpy() == 'Female', 0, 1).astype(np.int64)
+  row_index = np.arange(len(df))
+  labels = df['two_year_recid'].to_numpy(dtype=np.float32)
+  targets[row_index, task_index] = labels
+  masks[row_index, task_index] = 1.0
+
+  return {
+      'problem': 'multitask_classification',
+      'X': transformed_x,
+      'y': targets,
+      'mask': masks,
+      'task_index': task_index,
+      'task_names': task_names,
+      'column_names': column_names,
+      'feature_columns': feature_cols,
+      'raw_frame': df,
   }
 
 
@@ -256,19 +320,27 @@ def load_fico_score_data():
     np.ndarray.
   """
 
-  # Create column names
-  attr_dict_path = osp.join(DATA_PATH, 'fico/fico_score.attr')
-  attributes = gfile.Open(attr_dict_path, 'r').readlines()
-  column_names = [x.split(':')[0] for x in attributes]
-
-  df = read_dataset(
-      'fico/fico_score.data',
-      header=None,
-      names=column_names,
-      delim_whitespace=True)
-  train_cols = column_names[:-1]
-  label = column_names[-1]
-  x_df = df[train_cols]
+  fico_path = _resolve_existing_dataset_path(
+      'HelocData.csv',
+      'FICO-Explainable-ML-Challenge-HELOC-Dataset-master/HelocData.csv')
+  df = pd.read_csv(fico_path)
+  df = df.replace([-9, -8, -7], np.nan).dropna()
+  if 'ExternalRiskEstimate' in df.columns:
+    label = 'ExternalRiskEstimate'
+  elif 'x1' in df.columns:
+    # Local HELOC fallback: x1 is the first score-like numeric feature.
+    label = 'x1'
+  else:
+    candidate_cols = [c for c in df.columns if c.lower().startswith('x')]
+    if not candidate_cols:
+      raise ValueError('No suitable numeric target column found for FICO data.')
+    label = sorted(candidate_cols)[0]
+  drop_cols = [label]
+  if 'RiskPerformance' in df.columns:
+    drop_cols.append('RiskPerformance')
+  if 'RiskFlag' in df.columns:
+    drop_cols.append('RiskFlag')
+  x_df = df.drop(columns=drop_cols)
   y_df = df[label]
   return {
       'problem': 'regression',
@@ -293,39 +365,40 @@ def load_california_housing_data(
     input features `X` as a pandas.Dataframe and the regression targets `y` as
     np.ndarray.
   """
-  feature_names = [
-      'MedInc', 'HouseAge', 'AveRooms', 'AveBedrms', 'Population', 'AveOccup',
-      'Latitude', 'Longitude'
-  ]
+  # Local project CSV (if target exists) then sklearn fallback.
+  local_csv_path = osp.join(
+      osp.dirname(__file__), 'data', 'california_housing.csv')
+  if not osp.exists(local_csv_path):
+    local_csv_path = osp.join(
+        osp.dirname(__file__), 'data', 'California Housing',
+        'california_housing.csv')
+  if osp.exists(local_csv_path):
+    local_df = pd.read_csv(local_csv_path)
+    if 'MedHouseVal' in local_df.columns:
+      x_df = local_df.drop(columns=['MedHouseVal'])
+      y = local_df['MedHouseVal'].values
+      return {'problem': 'regression', 'X': x_df, 'y': y}
+    if 'median_house_value' in local_df.columns:
+      x_df = local_df.drop(columns=['median_house_value'])
+      y = local_df['median_house_value'].values
+      return {'problem': 'regression', 'X': x_df, 'y': y}
+    if 'target' in local_df.columns:
+      x_df = local_df.drop(columns=['target'])
+      y = local_df['target'].values
+      return {'problem': 'regression', 'X': x_df, 'y': y}
+    raise ValueError(
+        'Local California Housing CSV must include one of '
+        '`MedHouseVal`, `median_house_value`, or `target` columns: '
+        f'{local_csv_path}')
 
-  archive_path = osp.join(DATA_PATH, 'cal_housing.tgz')
-  with gfile.Open(archive_path, 'rb') as fileobj:
-    with tarfile.open(fileobj=fileobj, mode='r:gz') as f:
-      cal_housing = np.loadtxt(
-          f.extractfile('CaliforniaHousing/cal_housing.data'), delimiter=',')
-      # Columns are not in the same order compared to the previous
-      # URL resource on lib.stat.cmu.edu
-      columns_index = [8, 7, 2, 3, 4, 5, 6, 1, 0]
-      cal_housing = cal_housing[:, columns_index]
-
-  target, data = cal_housing[:, 0], cal_housing[:, 1:]
-
-  # avg rooms = total rooms / households
-  data[:, 2] /= data[:, 5]
-
-  # avg bed rooms = total bed rooms / households
-  data[:, 3] /= data[:, 5]
-
-  # avg occupancy = population / households
-  data[:, 5] = data[:, 4] / data[:, 5]
-
-  # target in units of 100,000
-  target = target / 100000.0
-
+  # Sklearn fallback always has target.
+  housing = fetch_california_housing(
+      as_frame=True,
+      data_home=osp.join(DATA_PATH, 'sklearn_cache'))
   return {
       'problem': 'regression',
-      'X': pd.DataFrame(data, columns=feature_names),
-      'y': target,
+      'X': housing.data.copy(),
+      'y': housing.target.values,
   }
 
 
@@ -360,34 +433,27 @@ def transform_data(df):
     identity `FunctionTransformer` for numerical variables. This is followed by
     scaling all features to the range (-1, 1) using min-max scaling.
   """
-  column_names = df.columns
-  new_column_names = []
   is_categorical = np.array([dt.kind == 'O' for dt in df.dtypes])
-  categorical_cols = df.columns.values[is_categorical]
-  numerical_cols = df.columns.values[~is_categorical]
-  for index, is_cat in enumerate(is_categorical):
-    col_name = column_names[index]
-    if is_cat:
-      new_column_names += [
-          '{}: {}'.format(col_name, val) for val in set(df[col_name])
-      ]
-    else:
-      new_column_names.append(col_name)
-  cat_ohe_step = (
-      'ohe',
-      OneHotEncoder(sparse_output=False, handle_unknown='ignore'),
-  )
+  categorical_cols = df.columns.values[is_categorical].tolist()
+  numerical_cols = df.columns.values[~is_categorical].tolist()
 
-  cat_pipe = Pipeline([cat_ohe_step])
-  num_pipe = Pipeline([('identity', FunctionTransformer(validate=True))])
-  transformers = [('cat', cat_pipe, categorical_cols),
-                  ('num', num_pipe, numerical_cols)]
-  column_transform = ColumnTransformer(transformers=transformers)
+  # Use pandas one-hot encoding to avoid sklearn API compatibility issues
+  # across versions while keeping the same transformed representation.
+  if categorical_cols:
+    transformed_df = pd.get_dummies(
+        df,
+        columns=categorical_cols,
+        prefix_sep=': ',
+        dtype=np.float32)
+  else:
+    transformed_df = df.copy()
+  if numerical_cols:
+    transformed_df[numerical_cols] = transformed_df[numerical_cols].astype(
+        np.float32)
 
-  pipe = CustomPipeline([('column_transform', column_transform),
-                         ('min_max', MinMaxScaler((-1, 1))), ('dummy', None)])
-  df = pipe.apply_transformation(df)
-  return df, new_column_names
+  scaler = MinMaxScaler(feature_range=(-1, 1))
+  transformed = scaler.fit_transform(transformed_df)
+  return transformed, list(transformed_df.columns)
 
 
 def load_dataset(dataset_name):
