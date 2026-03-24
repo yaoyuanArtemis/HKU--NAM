@@ -192,3 +192,53 @@ If you use this code in research, please cite:
 ## COMPAS Disclaimer
 
 The COMPAS dataset is included only as a reproduction example for interpretability and fairness-related experiments. Any criminal justice prediction task has significant ethical and social risks and should be treated accordingly.
+
+## Benchmark Results
+
+The following tables summarize representative benchmark results for NAM, NAMFM, and a set of standard baseline models. Reported values follow the evaluation metrics used in each dataset, and ensemble-based NAM variants are shown as mean ± standard deviation when multiple runs were aggregated.
+
+### California
+
+| Model | Num Parameters | Train RMSE | Val RMSE | Test RMSE |
+| --- | ---: | ---: | ---: | ---: |
+| NAM | 51,201 | 0.5520 | 0.5755 | 0.581 ± 0.009 |
+| EBM | 800 | 0.375735 | 0.490463 | 0.465602 |
+| XGBoost | 3,100 | 0.410846 | 0.503544 | 0.492333 |
+| DNN-MLP | 11,521 | 0.484241 | 0.541413 | 0.526535 |
+| CART | 61 | 0.68923 | 0.73501 | 0.732572 |
+| Linear | 9 | 0.716174 | 0.733898 | 0.744629 |
+| NAMFM | 51,297 | 0.5729 ± 0.0118 | 0.5683 ± 0.0154 | 0.5782 ± 0.0129 |
+
+### Credit
+
+| Model | Num Parameters | Train AUROC | Val AUROC | Test AUROC |
+| --- | ---: | ---: | ---: | ---: |
+| NAM | 92,161 | 0.9902 ± 0.0025 | 0.9765 ± 0.0152 | 0.973 ± 0.010 |
+| EBM | 3,000 | 0.999988 | 0.964192 | 0.976328 |
+| XGBoost | 3,100 | 0.999973 | 0.979355 | 0.974806 |
+| DNN-MLP | 14,337 | 0.997847 | 0.932886 | 0.971306 |
+| Logistic | 31 | 0.983137 | 0.964321 | 0.95368 |
+| CART | 33 | 0.940962 | 0.877322 | 0.906417 |
+| NAMFM | 92,521 | 0.9950 ± 0.0027 | 0.9802 ± 0.0136 | 0.9738 ± 0.0086 |
+
+### Heloc
+
+| Model | Num Parameters | Train RMSE | Val RMSE | Test RMSE |
+| --- | ---: | ---: | ---: | ---: |
+| NAM | 115,721 | 3.4063 ± 0.0531 | 3.6960 ± 0.1508 | 3.590 ± 0.179 |
+| EBM | 2,300 | 2.66589 | 3.13885 | 3.13495 |
+| XGBoost | 3,100 | 2.47542 | 3.17039 | 3.18007 |
+| DNN-MLP | 13,441 | 2.89539 | 3.62039 | 3.73619 |
+| Linear | 24 | 4.27581 | 4.38194 | 4.24178 |
+| CART | 63 | 4.80589 | 4.82292 | 4.91923 |
+| NAMFM | 115,981 | 3.3335 ± 0.0674 | 3.6595 ± 0.1717 | 3.5195 ± 0.1676 |
+
+### COMPAS Single-Task, Multitask, and FMNAMs Comparison
+
+The following comparison summarizes AUROC performance on the COMPAS benchmark under single-task and multitask NAM training, together with the combined-result FMNAMs variant.
+
+| Model | COMPAS Women | COMPAS Men | COMPAS Combined |
+| --- | ---: | ---: | ---: |
+| Single-task NAM | 0.710 ± 0.044 | 0.730 ± 0.015 | 0.730 ± 0.012 |
+| Multitask NAM | 0.711 ± 0.041 | 0.730 ± 0.016 | 0.730 ± 0.016 |
+| FMNAMs | - | - | 0.729 ± 0.020 |
